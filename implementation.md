@@ -17,7 +17,7 @@
 | Fase 1 | `phase1_lgbm.ipynb` | 0.82056 | 0.81496 (public LB) | LightGBM + imputación grupal + missing flags |
 | Fase 2 | `phase2_features.ipynb` | 0.82480 | 0.82174 (public LB) | + TE school/position + z-scores + overall_athleticism |
 | ~~Fase 3~~ | `phase3_ensemble.ipynb` | 0.85130 | **0.81833 — DESCARTADA** (overfit severo) | Optuna HPO + Ensemble LGBM+XGB+RF |
-| **Fase 2b** | `phase2b_interactions.ipynb` | **0.83830** | pendiente LB | Base Fase 2 + feature interactions |
+| Fase 2b | `phase2b_interactions.ipynb` | 0.83830 | 0.81971 (public LB) | Base Fase 2 + feature interactions |
 
 ---
 
@@ -173,3 +173,34 @@ reg_alpha: 0.11945     | reg_lambda: 8.6825 | gamma: 4.0309
 - `speed_agility_ratio` y `agility_shuttle_ratio` capturan perfiles de agilidad que las métricas individuales no capturaban
 - `strength_per_weight` (fuerza relativa al peso) es conceptualmente similar al BMI pero para rendimiento
 - `sprint_sq` tuvo el menor gain (49) — la no-linealidad de sprint ya estaba capturada por los otros features
+
+---
+
+## Fase 2c — Selección quirúrgica + Regularización fuerte
+**Notebook**: `phase2c_selective.ipynb`
+**Submission**: `results/submission_phase2c_2026-05-14_18-44-47.csv`
+**OOF AUC**: 0.83209 (+0.007 vs Fase 2 | más moderado que 2b +0.013)
+
+### Cambios vs Fase 2
+
+| # | Feature nueva | Tipo | Gain esperado |
+|---|---------------|------|---------------|
+| 1 | `n_tests_completed` | Resumen pre-imputación (0-6 tests) | informativa |
+| 2 | `z_sprint_x_bench` | Z-score interaction (velocidad × fuerza) | top de Fase 2b |
+| 3 | `speed_agility_ratio` | Sprint/Agility (perfil velocidad vs agilidad) | top de Fase 2b |
+| 4 | `strength_per_weight` | Fuerza relativa al peso | top de Fase 2b |
+| 5 | `agility_shuttle_ratio` | Relación entre los dos drills de agilidad | top de Fase 2b |
+| 6 | `power_speed` | Peso/Sprint (inercia en velocidad) | top de Fase 2b |
+
+### Regularización
+- `num_leaves`: 63 → **47** (modelo más conservador)
+- `min_child_samples`: 20 → **40** (Optuna encontró 75 — intermedio)
+- Resto de params idénticos a Fase 2
+
+### Patrón OOF vs LB observado
+```
+           OOF AUC   LB Score   Gap
+Fase 2:    0.82480   0.82174    0.003  ← menor gap, mejor generalización
+Fase 2b:   0.83830   0.81971    0.019  ← overfit
+Fase 2c:   0.83209   pendiente  ???    ← apuntamos a gap < 0.010
+```
