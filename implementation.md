@@ -15,7 +15,8 @@
 |------|----------|----------|-------------|
 | Baseline | `baseline.ipynb` | — | 0.80792 (public LB) | RandomForest, media global, sin flags |
 | Fase 1 | `phase1_lgbm.ipynb` | 0.82056 | 0.81496 (public LB) | LightGBM + imputación grupal + missing flags |
-| **Fase 2** | `phase2_features.ipynb` | **0.82480** | pendiente LB | + TE school/position + z-scores + overall_athleticism |
+| Fase 2 | `phase2_features.ipynb` | 0.82480 | 0.82174 (public LB) | + TE school/position + z-scores + overall_athleticism |
+| **Fase 3** | `phase3_ensemble.ipynb` | **0.85130** | pendiente LB | Optuna HPO + Ensemble LGBM+XGB+RF |
 
 ---
 
@@ -108,10 +109,36 @@ Todas las de Fase 1 + `z_Sprint_40yd`, `z_Vertical_Jump`, `z_Bench_Press_Reps`, 
 
 ---
 
-## Fase 3 — Pendiente
-- [ ] Hyperparameter tuning con Optuna
-- [ ] Ensemble: LGBM + XGB + RF con meta-learner
+## Fase 3 — Optuna HPO + Ensemble
+**Notebook**: `phase3_ensemble.ipynb`
+**Submission**: `results/submission_phase3_2026-05-14_18-21-52.csv`
+**OOF AUC**: 0.85130 (ensemble) — salto de +0.0265 vs Fase 2
 
-## Fase 3 — Pendiente
-- [ ] Hyperparameter tuning con Optuna
-- [ ] Ensemble: LGBM + XGB + RF con meta-learner
+### Resultados por modelo
+
+| Modelo | OOF AUC | Peso ensemble | Optuna mejores params |
+|--------|---------|---------------|----------------------|
+| **LGBM** | 0.85112 | 0.3340 | lr=0.048, num_leaves=82, max_depth=5, min_child=75 |
+| **XGB** | 0.85191 | 0.3343 | lr=0.094, max_depth=4, min_child_weight=8, gamma=4.03 |
+| RF | 0.84530 | 0.3317 | 500 trees, min_samples_leaf=5, class_weight=balanced |
+
+### Observaciones
+- Optuna encontró que `num_leaves=82` y `max_depth=5` son más conservadores que los defaults — previene overfitting en este dataset pequeño
+- `min_child_samples=75` en LGBM (vs default 20) — hoja mínima grande, fuerte regularización
+- XGB tuvo `gamma=4.03` alto — fuerte regularización por pruning de nodos
+- Los 3 modelos tienen pesos casi idénticos (~0.333) porque sus OOF AUC son muy similares
+- Ensemble no ganó sobre el mejor modelo individual (-0.00061 OOF) — los modelos son correlacionados; el valor real del ensemble es robustez en test
+
+### Hiperparámetros Optuna — LightGBM
+```
+learning_rate: 0.04793 | num_leaves: 82 | max_depth: 5
+min_child_samples: 75  | feature_fraction: 0.776 | bagging_fraction: 0.766
+reg_alpha: 0.01415     | reg_lambda: 0.03149     | min_split_gain: 0.07536
+```
+
+### Hiperparámetros Optuna — XGBoost
+```
+learning_rate: 0.09367 | max_depth: 4 | min_child_weight: 8
+subsample: 0.5975      | colsample_bytree: 0.8392
+reg_alpha: 0.11945     | reg_lambda: 8.6825 | gamma: 4.0309
+```
