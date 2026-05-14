@@ -16,7 +16,8 @@
 | Baseline | `baseline.ipynb` | — | 0.80792 (public LB) | RandomForest, media global, sin flags |
 | Fase 1 | `phase1_lgbm.ipynb` | 0.82056 | 0.81496 (public LB) | LightGBM + imputación grupal + missing flags |
 | Fase 2 | `phase2_features.ipynb` | 0.82480 | 0.82174 (public LB) | + TE school/position + z-scores + overall_athleticism |
-| **Fase 3** | `phase3_ensemble.ipynb` | **0.85130** | pendiente LB | Optuna HPO + Ensemble LGBM+XGB+RF |
+| ~~Fase 3~~ | `phase3_ensemble.ipynb` | 0.85130 | **0.81833 — DESCARTADA** (overfit severo) | Optuna HPO + Ensemble LGBM+XGB+RF |
+| **Fase 2b** | `phase2b_interactions.ipynb` | **0.83830** | pendiente LB | Base Fase 2 + feature interactions |
 
 ---
 
@@ -142,3 +143,33 @@ learning_rate: 0.09367 | max_depth: 4 | min_child_weight: 8
 subsample: 0.5975      | colsample_bytree: 0.8392
 reg_alpha: 0.11945     | reg_lambda: 8.6825 | gamma: 4.0309
 ```
+
+---
+
+## Fase 2b — Feature Interactions
+**Notebook**: `phase2b_interactions.ipynb`
+**Submission**: `results/submission_phase2b_2026-05-14_18-36-48.csv`
+**OOF AUC**: 0.83830 (+0.01350 vs Fase 2)
+
+### Features nuevas (17) — todas contribuyen con gain > 0
+
+| Categoría | Feature | Gain | Correlación con Drafted |
+|-----------|---------|------|------------------------|
+| Z-score interaction | `z_sprint_x_bench` | 354 | — (position-normalized) |
+| Ratio drill | `speed_agility_ratio` | 353 | -0.115 |
+| Ratio físico | `strength_per_weight` | 292 | +0.092 |
+| Ratio drill | `agility_shuttle_ratio` | 269 | +0.031 |
+| Producto físico | `power_speed` (Weight/Sprint) | 254 | +0.146 |
+| Z-score interaction | `z_sprint_x_vertical` | 240 | — |
+| Z-score interaction | `z_sprint_x_broad` | 236 | — |
+| Ratio físico | `jump_reach_ratio` | 214 | +0.075 |
+| Producto rendimiento | `sprint_x_bench` | 199 | +0.153 |
+| Ratio físico | `broad_per_height` | 191 | +0.058 |
+| Ratio físico | `weight_per_inch` | 184 | +0.070 |
+
+### Observaciones
+- 7 de las 17 nuevas features entran en el Top 15 global
+- Las interacciones de z-scores (`z_sprint_x_bench`, etc.) son más informativas que las de los valores raw (`sprint_x_bench`), porque están position-normalized — LGBM puede generalizar mejor entre posiciones
+- `speed_agility_ratio` y `agility_shuttle_ratio` capturan perfiles de agilidad que las métricas individuales no capturaban
+- `strength_per_weight` (fuerza relativa al peso) es conceptualmente similar al BMI pero para rendimiento
+- `sprint_sq` tuvo el menor gain (49) — la no-linealidad de sprint ya estaba capturada por los otros features
