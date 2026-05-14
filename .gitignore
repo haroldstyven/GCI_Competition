@@ -13,3 +13,4 @@ wheels/
 results/
 pyproject.toml
 uv.lock
+README.ipynb
