@@ -13,10 +13,9 @@
 
 | Fase | Notebook | OOF AUC | Descripción |
 |------|----------|----------|-------------|
-| Baseline | `baseline.ipynb` | ~0.79* | RandomForest, media global, sin flags |
-| **Fase 1** | `phase1_lgbm.ipynb` | **0.82056** | LightGBM + imputación grupal + missing flags |
-
-*AUC baseline estimado; no calculado explícitamente en el notebook original.
+| Baseline | `baseline.ipynb` | — | 0.80792 (public LB) | RandomForest, media global, sin flags |
+| Fase 1 | `phase1_lgbm.ipynb` | 0.82056 | 0.81496 (public LB) | LightGBM + imputación grupal + missing flags |
+| **Fase 2** | `phase2_features.ipynb` | **0.82480** | pendiente LB | + TE school/position + z-scores + overall_athleticism |
 
 ---
 
@@ -71,11 +70,47 @@ Mediana por `Position_Type` en lugar de media global. Ejemplo:
 
 ---
 
-## Fase 2 — Pendiente
-- [ ] Target encoding para `School`, `Position`, `Position_Type`
-- [ ] Z-scores por posición (rendimiento relativo al grupo)
-- [ ] Features compuestas: explosive score, speed-to-size ratio
-- [ ] Tendencia temporal (Year)
+---
+
+## Fase 2 — Target Encoding + Z-scores + Overall Athleticism
+**Notebook**: `phase2_features.ipynb`
+**Submission**: `results/submission_phase2_2026-05-14_18-15-26.csv`
+**OOF AUC**: 0.82480 (folds: 0.826 / 0.869 / 0.855 / 0.813 / 0.851)
+
+### Cambios vs Fase 1
+
+#### 1. Target Encoding (static, alpha=10)
+- `School`, `Position`, `Position_Type` → `te_School`, `te_Position`, `te_Position_Type`
+- TE estático calculado sobre todo el train (no fold-specific) con smoothing alpha=10
+- Smoothing: `te = (n × mean_grupo + 10 × mean_global) / (n + 10)`
+- `te_School` resultó el 3er feature más importante (gain: 890)
+- Rango útil: Texas-El Paso 0.468 (baja tasa) → Northwestern 0.760 (alta tasa)
+- **Nota**: TE fold-specific fue descartado — causaba inestabilidad severa (Fold 3 paraba en 4-6 iteraciones) por cambios drásticos en los valores para las 65 escuelas con 1 solo jugador
+
+#### 2. Z-scores por Position (20 posiciones)
+- Para cada PERF_COL: `z = (x - mean_position) / std_position`
+- Tiempos (Sprint, Agility, Shuttle) invertidos (`z = -z`) para consistencia de dirección
+- Stats calculadas solo en train, aplicadas a train y test
+- `z_Sprint_40yd` es el 2do feature más importante (gain: 1212)
+
+#### 3. Overall Athleticism
+- Promedio de los 6 z-scores: resumen compacto del perfil atlético
+- Gain: 585 (4to más importante)
+- Las composites específicas (explosive_score, agility_composite, power_score) fueron eliminadas por ser combinaciones lineales de los z-scores — redundantes
+
+### Features usadas (29 total)
+Todas las de Fase 1 + `z_Sprint_40yd`, `z_Vertical_Jump`, `z_Bench_Press_Reps`, `z_Broad_Jump`, `z_Agility_3cone`, `z_Shuttle`, `overall_athleticism`, `te_School`, `te_Position`, `te_Position_Type`
+
+### Lecciones aprendidas
+- TE fold-specific: teóricamente correcto pero produce modelos inestables en datasets pequeños con muchos grupos raros
+- TE estático con smoothing: práctica estándar en competencias, aceptable con alpha suficientemente grande
+- Redundancia raw + z-scores: LGBM maneja ambos bien con regularización; los folds dejan de converger prematuramente
+
+---
+
+## Fase 3 — Pendiente
+- [ ] Hyperparameter tuning con Optuna
+- [ ] Ensemble: LGBM + XGB + RF con meta-learner
 
 ## Fase 3 — Pendiente
 - [ ] Hyperparameter tuning con Optuna
